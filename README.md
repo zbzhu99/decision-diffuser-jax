@@ -6,7 +6,7 @@ This is a JAX implementation of [Decision Diffuser](https://arxiv.org/abs/2211.1
 
 Create python environment with conda
 ```bash
-conda create -f environment.yml
+conda env create -f environment.yml
 conda activate diffuser
 pip install -e .
 ```
