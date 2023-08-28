@@ -13,7 +13,7 @@ pip install -e .
 
 Apart from this, you'll have to setup your MuJoCo environment and key as well.
 
-### Run Experiments
+## Run Experiments
 
 Run diffuser on d4rl hopper:
 
@@ -28,11 +28,11 @@ python train.py --config configs/dql_hopper/dql_hopper_mdexpert.py
 ```
 
 
-### Current results on D4RL datasets
+## Current results on D4RL datasets
 
 ![](./assets/d4rl_results.png)
 
-### Weights and Biases Online Visualization Integration
+## Weights and Biases Online Visualization Integration
 This codebase can also log to [W&B online visualization platform](https://wandb.ai/site). To log to W&B, you first need to set your W&B API key environment variable.
 Alternatively, you could simply run `wandb login`.
 
