@@ -10,11 +10,28 @@ def clip_actions(dataset, clip_to_eps: bool = True, eps: float = 1e-5):
     return dataset
 
 
-def compute_returns(traj):
-    episode_return = 0
-    for _, _, rew, *_ in traj:
-        episode_return += rew
-    return episode_return
+def compute_discounted_cumsum_returns(traj, gamma: float) -> np.ndarray:
+    """
+    Calculate the discounted cumulative reward sum of traj
+    """
+
+    cumsum = np.zeros(len(traj))
+    cumsum[-1] = traj[-1][2]
+    for t in reversed(range(cumsum.shape[0] - 1)):
+        cumsum[t] = traj[t][2] + gamma * cumsum[t + 1]
+    return cumsum
+
+
+def add_discounted_returns(
+    trajs, discount: float, termination_penalty: float,
+):
+    for traj in trajs:
+        if np.any([bool(step[4]) for step in traj]) and termination_penalty is not None:
+            traj[-1][2] += termination_penalty
+        reward_returns = compute_discounted_cumsum_returns(traj, discount)
+        for idx, step in enumerate(traj):
+            step.append(reward_returns[idx])
+    return trajs
 
 
 def split_to_trajs(dataset):
@@ -35,14 +52,14 @@ def split_to_trajs(dataset):
     trajs = [[]]
     for i in range(len(dataset["observations"])):
         trajs[-1].append(
-            (
+            [
                 dataset["observations"][i],
                 dataset["actions"][i],
                 dataset["rewards"][i],
                 dones_float[i],
                 dataset["terminals"][i],
                 dataset["next_observations"][i],
-            )
+            ]
         )
         if dones_float[i] == 1.0 and i + 1 < len(dataset["observations"]):
             trajs.append([])
@@ -53,7 +70,6 @@ def split_to_trajs(dataset):
 def pad_trajs_to_dataset(
     trajs,
     max_traj_length: int,
-    termination_penalty: float = None,
     include_next_obs: bool = False,
 ):
     n_trajs = len(trajs)
@@ -68,6 +84,7 @@ def pad_trajs_to_dataset(
     dataset["terminals"] = np.zeros((n_trajs, max_traj_length), dtype=np.float32)
     dataset["dones_float"] = np.zeros((n_trajs, max_traj_length), dtype=np.float32)
     dataset["traj_lengths"] = np.zeros((n_trajs,), dtype=np.int32)
+    dataset["returns"] = np.zeros((n_trajs, max_traj_length), dtype=np.float32)
     if include_next_obs:
         dataset["next_observations"] = np.zeros(
             (n_trajs, max_traj_length, obs_dim), dtype=np.float32
@@ -96,7 +113,8 @@ def pad_trajs_to_dataset(
                 np.stack([ts[5] for ts in traj], axis=0),
                 n=2,
             )
-        if dataset["terminals"][idx].any() and termination_penalty is not None:
-            dataset["rewards"][idx, traj_length - 1] += termination_penalty
+        dataset["returns"][idx, :traj_length] = np.stack(
+            [ts[-1] for ts in traj], axis=0
+        )
 
     return dataset

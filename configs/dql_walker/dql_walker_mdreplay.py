@@ -21,13 +21,12 @@ def get_config():
     config.max_traj_length = 1000
     config.horizon = 1
     config.returns_scale = 1.0
-    config.include_returns = False
+    config.returns_condition = False
     config.termination_penalty = 0.0
 
     config.seed = 100
     config.batch_size = 256
-    config.reward_scale = 1
-    config.reward_bias = 0
+    config.discount = 0.99
     config.clip_action = 0.999
     config.encoder_arch = "64-64"
     config.policy_arch = "256-256-256"

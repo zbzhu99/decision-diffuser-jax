@@ -33,8 +33,6 @@ class SequenceDataset(torch.utils.data.Dataset):
         use_padding: bool = True,
         use_action: bool = True,
         include_returns: bool = True,
-        discount: float = 0.99,
-        returns_scale: float = 1.0,
         use_future_masks: bool = False,
     ) -> None:
         self.include_returns = include_returns
@@ -43,19 +41,12 @@ class SequenceDataset(torch.utils.data.Dataset):
         self.use_padding = use_padding
         self.max_traj_length = max_traj_length
         self.horizon = horizon
-        self.returns_scale = returns_scale
         self.discrete_action = discrete_action
         if discrete_action:
             raise NotImplementedError
 
-        self.discount = discount
-        self.discounts = self.discount ** np.arange(self.max_traj_length)
-
         self._data = data
-        self.normalizer = DatasetNormalizer(
-            self._data,
-            normalizer,
-        )
+        self.normalizer = DatasetNormalizer(self._data, normalizer)
 
         self._keys = list(data.keys()).remove("traj_lengths")
         self._indices = self.make_indices()
@@ -99,7 +90,9 @@ class SequenceDataset(torch.utils.data.Dataset):
         normalize fields that will be predicted by the diffusion model
         """
         if keys is None:
-            keys = ["observations", "actions"] if self.use_action else ["observations"]
+            keys = ["observations", "returns"]
+            if self.use_action:
+                keys.append("actions")
 
         for key in keys:
             array = self._data[key].reshape(
@@ -157,11 +150,9 @@ class SequenceDataset(torch.utils.data.Dataset):
         ret_dict = dict(samples=observations, conditions=conditions, masks=masks)
 
         if self.include_returns:
-            rewards = self._data.rewards[path_ind, start:]
-            discounts = self.discounts[: len(rewards)]
-            returns = (discounts * rewards).sum(axis=0)
-            returns = np.array([returns / self.returns_scale], dtype=np.float32)
-            ret_dict["returns"] = returns
+            ret_dict["returns"] = self._data.normed_returns[path_ind, start].reshape(
+                1, 1
+            )
 
         if self.use_action:
             ret_dict["actions"] = actions

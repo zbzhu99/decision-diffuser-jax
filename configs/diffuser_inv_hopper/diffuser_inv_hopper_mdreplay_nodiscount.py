@@ -6,24 +6,24 @@ from utilities.utils import WandBLogger
 def get_config():
     config = ConfigDict()
     config.exp_name = "diffuser_inv_d4rl"
-    config.log_dir_format = "{exp_name}/{env}/h_{horizon}-r_{returns_scale}/{seed}"
+    config.log_dir_format = "{exp_name}/{env}/h_{horizon}-tr_{target_return}-dis_{discount}/{seed}"
 
     config.trainer = "DiffuserTrainer"
     config.type = "model-free"
 
-    config.env = "halfcheetah-medium-v2"
+    config.env = "hopper-medium-replay-v2"
     config.dataset = "d4rl"
     config.dataset_class = "SequenceDataset"
     config.use_padding = True
     config.normalizer = "LimitsNormalizer"
     config.max_traj_length = 1000
     config.horizon = 20
-    config.returns_scale = 600.0
     config.termination_penalty = -100.0
+    config.target_return = 3000.0
 
     config.seed = 100
     config.batch_size = 256
-    config.discount = 0.99
+    config.discount = 1.0
     config.clip_action = 0.999
     config.dim = 128
     config.dim_mults = "1-2-4"
@@ -48,7 +48,7 @@ def get_config():
     config.act_method = "ddpm"
     config.sample_method = "ddpm"
 
-    config.save_period = 100
+    config.save_period = 0
     config.logging = WandBLogger.get_default_config()
 
     config.algo_cfg = ConfigDict()

@@ -146,6 +146,7 @@ class BaseTrainer:
         )
         dataset = get_dataset(
             eval_sampler.env,
+            discount=self._cfgs.discount,
             max_traj_length=self._cfgs.max_traj_length,
             include_next_obs=include_next_obs,
             termination_penalty=self._cfgs.termination_penalty,
@@ -159,19 +160,14 @@ class BaseTrainer:
         else:
             raise NotImplementedError
 
-        dataset["rewards"] = (
-            dataset["rewards"] * self._cfgs.reward_scale + self._cfgs.reward_bias
-        )
-
         dataset = getattr(
             importlib.import_module("data.sequence"), self._cfgs.dataset_class
         )(
             dataset,
             horizon=self._cfgs.horizon,
             max_traj_length=self._cfgs.max_traj_length,
-            include_returns=self._cfgs.include_returns,
+            include_returns=self._cfgs.returns_condition,
             normalizer=self._cfgs.normalizer,
-            returns_scale=self._cfgs.returns_scale,
             use_padding=self._cfgs.use_padding,
         )
         eval_sampler.set_normalizer(dataset.normalizer)

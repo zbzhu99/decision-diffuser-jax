@@ -38,7 +38,10 @@ class DiffuserTrainer(BaseTrainer):
         )
 
         # setup evaluator
-        sampler_policy = DiffuserPolicy(self._planner, self._inv_model)
+        target_return = dataset.normalizer.normalize(
+            self._cfgs.target_return, "returns"
+        )
+        sampler_policy = DiffuserPolicy(self._planner, self._inv_model, target_return)
         self._evaluator = self._setup_evaluator(sampler_policy, eval_sampler, dataset)
 
     def _setup_policy(self):

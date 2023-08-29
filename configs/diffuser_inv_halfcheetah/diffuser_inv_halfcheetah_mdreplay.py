@@ -18,14 +18,12 @@ def get_config():
     config.normalizer = "LimitsNormalizer"
     config.max_traj_length = 1000
     config.horizon = 20
-    config.include_returns = True
     config.returns_scale = 550.0
     config.termination_penalty = -100.0
 
     config.seed = 100
     config.batch_size = 256
-    config.reward_scale = 1
-    config.reward_bias = 0
+    config.discount = 0.99
     config.clip_action = 0.999
     config.dim = 128
     config.dim_mults = "1-2-4"

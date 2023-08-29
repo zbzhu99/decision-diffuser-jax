@@ -134,9 +134,10 @@ class SamplerPolicy(object):  # used for dql
 
 
 class DiffuserPolicy(object):
-    def __init__(self, planner, inv_model, act_method="ddpm"):
+    def __init__(self, planner, inv_model, target_return: float, act_method: str = "ddpm"):
         self.planner = planner
         self.inv_model = inv_model
+        self.target_return = target_return
         self.act_method = act_method
 
     def update_params(self, params):
@@ -148,7 +149,7 @@ class DiffuserPolicy(object):
         self, params, rng, observations, deterministic
     ):  # deterministic is not used
         conditions = {0: observations}
-        returns = jnp.ones((observations.shape[0], 1)) * 0.9
+        returns = jnp.ones((observations.shape[0], 1)) * self.target_return
         plan_samples = self.planner.apply(
             params["planner"],
             rng,
@@ -175,7 +176,7 @@ class DiffuserPolicy(object):
         self, params, rng, observations, deterministic
     ):  # deterministic is not used
         conditions = {0: observations}
-        returns = jnp.ones((observations.shape[0], 1)) * 0.9
+        returns = jnp.ones((observations.shape[0], 1)) * self.target_return
         plan_samples = self.planner.apply(
             params["planner"],
             rng,
