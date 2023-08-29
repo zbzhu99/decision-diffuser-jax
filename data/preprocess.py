@@ -23,7 +23,9 @@ def compute_discounted_cumsum_returns(traj, gamma: float) -> np.ndarray:
 
 
 def add_discounted_returns(
-    trajs, discount: float, termination_penalty: float,
+    trajs,
+    discount: float,
+    termination_penalty: float,
 ):
     for traj in trajs:
         if np.any([bool(step[4]) for step in traj]) and termination_penalty is not None:

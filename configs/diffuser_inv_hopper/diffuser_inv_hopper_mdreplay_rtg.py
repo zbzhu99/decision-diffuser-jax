@@ -6,7 +6,7 @@ from utilities.utils import WandBLogger
 def get_config():
     config = ConfigDict()
     config.exp_name = "diffuser_inv_d4rl"
-    config.log_dir_format = "{exp_name}/{env}/h_{horizon}-r_{returns_scale}/{seed}"
+    config.log_dir_format = "{exp_name}/{env}/h_{horizon}-tr_{target_return}-dis_{discount}-envts_{env_ts_condition}/{seed}"
 
     config.trainer = "DiffuserTrainer"
     config.type = "model-free"
@@ -18,12 +18,13 @@ def get_config():
     config.normalizer = "LimitsNormalizer"
     config.max_traj_length = 1000
     config.horizon = 20
-    config.returns_scale = 350.0
     config.termination_penalty = -100.0
+    config.target_return = 3000.0
+    config.env_ts_condition = True
 
     config.seed = 100
     config.batch_size = 256
-    config.discount = 0.99
+    config.discount = 1.0
     config.clip_action = 0.999
     config.dim = 128
     config.dim_mults = "1-2-4"

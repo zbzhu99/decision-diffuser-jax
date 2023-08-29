@@ -49,7 +49,8 @@ def main():
         ckpt_path = os.path.join(args.log_dir, f"checkpoints/model_{epoch}")
         restored = orbax_checkpointer.restore(ckpt_path, item=target)
         eval_params = {
-            key: restored["agent_states"][key].params_ema or restored["agent_states"][key].params
+            key: restored["agent_states"][key].params_ema
+            or restored["agent_states"][key].params
             for key in trainer._agent.model_keys
         }
         trainer._evaluator.update_params(eval_params)

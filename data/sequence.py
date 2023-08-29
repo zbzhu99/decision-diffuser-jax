@@ -33,9 +33,11 @@ class SequenceDataset(torch.utils.data.Dataset):
         use_padding: bool = True,
         use_action: bool = True,
         include_returns: bool = True,
+        include_env_ts: bool = True,
         use_future_masks: bool = False,
     ) -> None:
         self.include_returns = include_returns
+        self.include_env_ts = include_env_ts
         self.use_action = use_action
         self.use_future_masks = use_future_masks
         self.use_padding = use_padding
@@ -149,6 +151,8 @@ class SequenceDataset(torch.utils.data.Dataset):
         conditions = self.get_conditions(observations)
         ret_dict = dict(samples=observations, conditions=conditions, masks=masks)
 
+        if self.include_env_ts:
+            ret_dict["env_ts"] = start
         if self.include_returns:
             ret_dict["returns"] = self._data.normed_returns[path_ind, start].reshape(
                 1, 1

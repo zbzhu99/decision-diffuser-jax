@@ -84,17 +84,23 @@ class TrajSampler(object):
         seed: int,
         max_traj_length: int = 1000,
         render: bool = False,
+        use_env_ts: bool = False,
     ):
         self.max_traj_length = max_traj_length
+        self.use_env_ts = use_env_ts
         self._env = env_fn()
         self._envs = get_envs(env_fn, num_envs)
         self._envs.seed(seed)
         self._num_envs = num_envs
         self._render = render
         self._normalizer = None
+        self._target_return = None
 
     def set_normalizer(self, normalizer):
         self._normalizer = normalizer
+
+    def set_target_return(self, target_return):
+        self._target_return = target_return
 
     def sample(
         self,
@@ -105,6 +111,10 @@ class TrajSampler(object):
     ):
         assert n_trajs > 0
         ready_env_ids = np.arange(min(self._num_envs, n_trajs))
+        if self._target_return is not None:
+            returns_to_go = np.ones(len(ready_env_ids)) * self._target_return
+        if self.use_env_ts:
+            env_ts = np.zeros(len(ready_env_ids), dtype=np.int32)
 
         observation, _ = self.envs.reset(ready_env_ids)
         observation = self._normalizer.normalize(observation, "observations")
@@ -118,11 +128,21 @@ class TrajSampler(object):
         trajs = []
         n_finished_trajs = 0
         while True:
-            action = policy(observation, deterministic=deterministic)
+            policy_kwargs = {}
+            if self._target_return is not None:
+                policy_kwargs["returns_to_go"] = self._normalizer.normalize(
+                    returns_to_go[ready_env_ids], "returns"
+                )
+            if self.use_env_ts:
+                policy_kwargs["env_ts"] = env_ts[ready_env_ids]
+            action = policy(observation, deterministic=deterministic, **policy_kwargs)
             action = self._normalizer.unnormalize(action, "actions")
+
             next_observation, reward, terminated, truncated, _ = self.envs.step(
                 action, ready_env_ids
             )
+            env_ts[ready_env_ids] += 1
+            returns_to_go[ready_env_ids] -= reward
             done = np.logical_or(terminated, truncated)
             if self._render:
                 getattr(self.envs, env_render_fn)()
@@ -160,6 +180,9 @@ class TrajSampler(object):
                     rewards[ind] = []
                     next_observations[ind] = []
                     dones[ind] = []
+
+                returns_to_go[env_ind_local] = self._target_return
+                env_ts[env_ind_local] = 0
 
                 n_finished_trajs += len(env_ind_local)
                 if n_finished_trajs >= n_trajs:

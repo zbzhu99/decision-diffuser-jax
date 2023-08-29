@@ -6,7 +6,9 @@ from utilities.utils import WandBLogger
 def get_config():
     config = ConfigDict()
     config.exp_name = "diffuser_inv_d4rl"
-    config.log_dir_format = "{exp_name}/{env}/h_{horizon}-tr_{target_return}-dis_{discount}/{seed}"
+    config.log_dir_format = (
+        "{exp_name}/{env}/h_{horizon}-tr_{target_return}-dis_{discount}/{seed}"
+    )
 
     config.trainer = "DiffuserTrainer"
     config.type = "model-free"

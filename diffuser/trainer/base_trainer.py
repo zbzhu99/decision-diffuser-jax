@@ -96,10 +96,16 @@ class BaseTrainer:
             logger.dump_tabular(with_prefix=False, with_timestamp=False)
 
         # save model at final epoch
-        if self._cfgs.save_period > 0 and self._cfgs.n_epochs % self._cfgs.save_period == 0:
+        if (
+            self._cfgs.save_period > 0
+            and self._cfgs.n_epochs % self._cfgs.save_period == 0
+        ):
             self._save_model(self._cfgs.n_epochs)
 
-        if self._cfgs.eval_period > 0 and self._cfgs.n_epochs % self._cfgs.eval_period == 0:
+        if (
+            self._cfgs.eval_period > 0
+            and self._cfgs.n_epochs % self._cfgs.eval_period == 0
+        ):
             self._evaluator.update_params(self._agent.eval_params)
             self._evaluator.evaluate(self._cfgs.n_epochs)
 
@@ -112,9 +118,7 @@ class BaseTrainer:
             "variant": self._variant,
             "epoch": epoch,
         }
-        logger.save_orbax_checkpoint(
-            save_data, f"checkpoints/model_{epoch}"
-        )
+        logger.save_orbax_checkpoint(save_data, f"checkpoints/model_{epoch}")
 
     def _setup_logger(self):
         logging_configs = self._cfgs.logging
@@ -143,6 +147,7 @@ class BaseTrainer:
             self._cfgs.num_eval_envs,
             self._cfgs.eval_env_seed,
             self._cfgs.max_traj_length,
+            use_env_ts=self._cfgs.env_ts_condition,
         )
         dataset = get_dataset(
             eval_sampler.env,
@@ -167,6 +172,7 @@ class BaseTrainer:
             horizon=self._cfgs.horizon,
             max_traj_length=self._cfgs.max_traj_length,
             include_returns=self._cfgs.returns_condition,
+            include_env_ts=self._cfgs.env_ts_condition,
             normalizer=self._cfgs.normalizer,
             use_padding=self._cfgs.use_padding,
         )
