@@ -11,7 +11,7 @@ def get_config():
     config.trainer = "DiffuserTrainer"
     config.type = "model-free"
 
-    config.env = "hopper-medium-replay-v2"
+    config.env = "walker2d-medium-replay-v2"
     config.dataset = "d4rl"
     config.dataset_class = "SequenceDataset"
     config.use_padding = True
@@ -19,7 +19,7 @@ def get_config():
     config.max_traj_length = 1000
     config.horizon = 20
     config.termination_penalty = -100.0
-    config.target_return = 3500.0
+    config.target_return = 4500.0
     config.env_ts_condition = True
 
     config.seed = 100

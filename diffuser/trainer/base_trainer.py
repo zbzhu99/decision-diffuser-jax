@@ -152,6 +152,7 @@ class BaseTrainer:
         dataset = get_dataset(
             eval_sampler.env,
             discount=self._cfgs.discount,
+            horizon=self._cfgs.horizon,
             max_traj_length=self._cfgs.max_traj_length,
             include_next_obs=include_next_obs,
             termination_penalty=self._cfgs.termination_penalty,
