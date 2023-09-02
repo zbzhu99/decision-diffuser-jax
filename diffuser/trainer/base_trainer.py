@@ -175,7 +175,7 @@ class BaseTrainer:
             include_returns=self._cfgs.returns_condition,
             include_env_ts=self._cfgs.env_ts_condition,
             normalizer=self._cfgs.normalizer,
-            use_padding=self._cfgs.use_padding,
+            use_inv_dynamic=getattr(self._cfgs, "use_inv_dynamic", True),
         )
         eval_sampler.set_normalizer(dataset.normalizer)
 

@@ -276,7 +276,7 @@ class DiffusionPlanner(nn.Module):
             rng, conditions, env_ts, deterministic, returns_to_go
         )
 
-    def loss(self, rng_key, samples, conditions, ts, env_ts, returns_to_go=None):
+    def loss(self, rng_key, samples, conditions, ts, env_ts, masks, returns_to_go=None):
         terms = self.diffusion.training_losses(
             rng_key,
             model_forward=self.base_net,
@@ -286,5 +286,6 @@ class DiffusionPlanner(nn.Module):
             returns_to_go=returns_to_go,
             env_ts=env_ts,
             t=ts,
+            masks=masks,
         )
         return terms

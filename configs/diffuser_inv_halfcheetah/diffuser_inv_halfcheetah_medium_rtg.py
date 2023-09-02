@@ -5,8 +5,8 @@ from utilities.utils import WandBLogger
 
 def get_config():
     config = ConfigDict()
-    config.exp_name = "diffuser_inv_d4rl"
-    config.log_dir_format = "{exp_name}/{env}/h_{horizon}-r_{returns_scale}/{seed}"
+    config.exp_name = "diffuser_inv_d4rl_mask_reweight"
+    config.log_dir_format = "{exp_name}/{env}/h_{horizon}-tr_{target_return}-dis_{discount}-envts_{env_ts_condition}/{seed}"
 
     config.trainer = "DiffuserTrainer"
     config.type = "model-free"
@@ -17,8 +17,9 @@ def get_config():
     config.normalizer = "LimitsNormalizer"
     config.max_traj_length = 1000
     config.horizon = 20
-    config.returns_scale = 600.0
     config.termination_penalty = -100.0
+    config.target_return = 6000.0
+    config.env_ts_condition = True
 
     config.seed = 100
     config.batch_size = 256
@@ -34,7 +35,7 @@ def get_config():
     config.use_inv_dynamic = True
     config.inv_hidden_dims = "256-256"
 
-    config.n_epochs = 1000
+    config.n_epochs = 800
     config.n_train_step_per_epoch = 1000
 
     config.evaluator_class = "OnlineEvaluator"
@@ -47,7 +48,7 @@ def get_config():
     config.act_method = "ddpm"
     config.sample_method = "ddpm"
 
-    config.save_period = 100
+    config.save_period = 0
     config.logging = WandBLogger.get_default_config()
 
     config.algo_cfg = ConfigDict()

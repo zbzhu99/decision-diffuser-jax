@@ -5,7 +5,7 @@ from utilities.utils import WandBLogger
 
 def get_config():
     config = ConfigDict()
-    config.exp_name = "diffuser_inv_d4rl_fix_pad"
+    config.exp_name = "diffuser_inv_d4rl_mask_reweight"
     config.log_dir_format = "{exp_name}/{env}/h_{horizon}-tr_{target_return}-dis_{discount}-envts_{env_ts_condition}/{seed}"
 
     config.trainer = "DiffuserTrainer"
@@ -14,12 +14,11 @@ def get_config():
     config.env = "walker2d-medium-replay-v2"
     config.dataset = "d4rl"
     config.dataset_class = "SequenceDataset"
-    config.use_padding = True
     config.normalizer = "LimitsNormalizer"
     config.max_traj_length = 1000
     config.horizon = 20
     config.termination_penalty = -100.0
-    config.target_return = 4500.0
+    config.target_return = 4000.0
     config.env_ts_condition = True
 
     config.seed = 100
@@ -36,7 +35,7 @@ def get_config():
     config.use_inv_dynamic = True
     config.inv_hidden_dims = "256-256"
 
-    config.n_epochs = 1000
+    config.n_epochs = 800
     config.n_train_step_per_epoch = 1000
 
     config.evaluator_class = "OnlineEvaluator"

@@ -30,15 +30,15 @@ class SequenceDataset(torch.utils.data.Dataset):
         max_traj_length: int,
         normalizer: str = "LimitsNormalizer",
         discrete_action: bool = False,
-        use_padding: bool = True,
         use_action: bool = True,
+        use_inv_dynamic: bool = True,
         include_returns: bool = True,
         include_env_ts: bool = True,
     ) -> None:
         self.include_returns = include_returns
         self.include_env_ts = include_env_ts
         self.use_action = use_action
-        self.use_padding = use_padding
+        self.use_inverse_dynamic = use_inv_dynamic
         self.max_traj_length = max_traj_length
         self.horizon = horizon
         self.discrete_action = discrete_action
@@ -69,7 +69,8 @@ class SequenceDataset(torch.utils.data.Dataset):
             # get `end` and `mask_end` for each `start`
             for start in range(traj_length - 1):
                 end = start + self.horizon
-                indices.append((i, start, end))
+                mask_end = min(end, traj_length)
+                indices.append((i, start, end, mask_end))
         indices = np.array(indices)
         return indices
 
@@ -96,7 +97,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         return {0: observations[0]}
 
     def __getitem__(self, idx):
-        path_ind, start, end = self._indices[idx]
+        path_ind, start, end, mask_end = self._indices[idx]
 
         observations = self._data.normed_observations[path_ind, start:end]
         if self.use_action:
@@ -105,8 +106,14 @@ class SequenceDataset(torch.utils.data.Dataset):
             else:
                 actions = self._data.normed_actions[path_ind, start:end]
 
+        masks = np.zeros((observations.shape[0], 1))
+        if self.use_inverse_dynamic:
+            masks[1: mask_end - start] = 1.0
+        else:
+            masks[: mask_end - start] = 1.0
+
         conditions = self.get_conditions(observations)
-        ret_dict = dict(samples=observations, conditions=conditions)
+        ret_dict = dict(samples=observations, conditions=conditions, masks=masks)
 
         if self.include_env_ts:
             ret_dict["env_ts"] = start

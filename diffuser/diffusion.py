@@ -791,6 +791,7 @@ class GaussianDiffusion:
         x_start,
         conditions,
         t,
+        masks=None,
         env_ts=None,
         condition_dim=None,
         returns_to_go=None,
@@ -878,14 +879,16 @@ class GaussianDiffusion:
                 ModelMeanType.START_X: x_start,
                 ModelMeanType.EPSILON: noise,
             }[self.model_mean_type]
-
             assert model_output.shape == target.shape == x_start.shape
-            if self.loss_weights is None:
-                terms["mse"] = mean_flat((target - model_output) ** 2)
+
+            mse = (target - model_output) ** 2
+            if self.loss_weights is not None:
+                mse = self.loss_weights * mse
+            if masks is not None:
+                terms["mse"] = mean_flat(masks * mse) / mean_flat(masks)
             else:
-                terms["mse"] = mean_flat(
-                    self.loss_weights * (target - model_output) ** 2
-                )
+                terms["mse"] = mean_flat(mse)
+
             if "vb" in terms:
                 terms["loss"] = terms["mse"] + terms["vb"]
             else:
