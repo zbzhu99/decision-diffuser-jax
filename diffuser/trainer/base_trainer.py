@@ -152,6 +152,7 @@ class BaseTrainer:
         dataset = get_dataset(
             eval_sampler.env,
             discount=self._cfgs.discount,
+            horizon=self._cfgs.horizon,
             max_traj_length=self._cfgs.max_traj_length,
             include_next_obs=include_next_obs,
             termination_penalty=self._cfgs.termination_penalty,
@@ -172,9 +173,8 @@ class BaseTrainer:
             horizon=self._cfgs.horizon,
             max_traj_length=self._cfgs.max_traj_length,
             include_returns=self._cfgs.returns_condition,
-            include_env_ts=self._cfgs.env_ts_condition,
             normalizer=self._cfgs.normalizer,
-            use_padding=self._cfgs.use_padding,
+            use_inv_dynamic=getattr(self._cfgs, "use_inv_dynamic", True),
         )
         eval_sampler.set_normalizer(dataset.normalizer)
 

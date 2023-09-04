@@ -72,24 +72,27 @@ def split_to_trajs(dataset):
 def pad_trajs_to_dataset(
     trajs,
     max_traj_length: int,
+    horizon: int,
     include_next_obs: bool = False,
 ):
     n_trajs = len(trajs)
 
     dataset = {}
     obs_dim, act_dim = trajs[0][0][0].shape[0], trajs[0][0][1].shape[0]
+    # make the last `horizon` steps of each trajectory have enough future steps
+    pad_traj_length = max_traj_length + horizon - 1
     dataset["observations"] = np.zeros(
-        (n_trajs, max_traj_length, obs_dim), dtype=np.float32
+        (n_trajs, pad_traj_length, obs_dim), dtype=np.float32
     )
-    dataset["actions"] = np.zeros((n_trajs, max_traj_length, act_dim), dtype=np.float32)
-    dataset["rewards"] = np.zeros((n_trajs, max_traj_length), dtype=np.float32)
-    dataset["terminals"] = np.zeros((n_trajs, max_traj_length), dtype=np.float32)
-    dataset["dones_float"] = np.zeros((n_trajs, max_traj_length), dtype=np.float32)
+    dataset["actions"] = np.zeros((n_trajs, pad_traj_length, act_dim), dtype=np.float32)
+    dataset["rewards"] = np.zeros((n_trajs, pad_traj_length), dtype=np.float32)
+    dataset["terminals"] = np.zeros((n_trajs, pad_traj_length), dtype=np.float32)
+    dataset["dones_float"] = np.zeros((n_trajs, pad_traj_length), dtype=np.float32)
     dataset["traj_lengths"] = np.zeros((n_trajs,), dtype=np.int32)
-    dataset["returns"] = np.zeros((n_trajs, max_traj_length), dtype=np.float32)
+    dataset["returns"] = np.zeros((n_trajs, pad_traj_length), dtype=np.float32)
     if include_next_obs:
         dataset["next_observations"] = np.zeros(
-            (n_trajs, max_traj_length, obs_dim), dtype=np.float32
+            (n_trajs, pad_traj_length, obs_dim), dtype=np.float32
         )
 
     for idx, traj in enumerate(trajs):

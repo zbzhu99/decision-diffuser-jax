@@ -49,6 +49,7 @@ class DecisionDiffuser(Algo):
             jnp.zeros((10, self.horizon, self.planner.sample_dim)),  # samples
             {0: jnp.zeros((10, self.observation_dim))},  # conditions
             jnp.zeros((10,), dtype=jnp.int32),  # ts
+            masks=jnp.ones((10, self.horizon, 1)),
             env_ts=jnp.zeros((10,), dtype=jnp.int32),
             returns_to_go=jnp.zeros((10, 1)),
             method=self.planner.loss,
@@ -147,8 +148,9 @@ class DecisionDiffuser(Algo):
             conditions = batch["conditions"]
             env_ts = batch["env_ts"]
             returns_to_go = batch.get("returns", None)
+            masks = batch["masks"]
             terms, ts = self.get_diff_terms(
-                params, samples, conditions, env_ts, returns_to_go, rng
+                params, samples, conditions, env_ts, returns_to_go, masks, rng
             )
             loss = terms["loss"].mean()
 
@@ -156,7 +158,9 @@ class DecisionDiffuser(Algo):
 
         return diff_loss
 
-    def get_diff_terms(self, params, samples, conditions, env_ts, returns_to_go, rng):
+    def get_diff_terms(
+        self, params, samples, conditions, env_ts, returns_to_go, masks, rng
+    ):
         rng, split_rng = jax.random.split(rng)
         ts = jax.random.randint(
             split_rng,
@@ -171,6 +175,7 @@ class DecisionDiffuser(Algo):
             samples,
             conditions,
             ts,
+            masks=masks,
             env_ts=env_ts,
             returns_to_go=returns_to_go,
             method=self.planner.loss,

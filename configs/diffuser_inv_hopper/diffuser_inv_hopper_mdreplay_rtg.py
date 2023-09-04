@@ -5,7 +5,7 @@ from utilities.utils import WandBLogger
 
 def get_config():
     config = ConfigDict()
-    config.exp_name = "diffuser_inv_d4rl"
+    config.exp_name = "diffuser_inv_d4rl_fix_pad"
     config.log_dir_format = "{exp_name}/{env}/h_{horizon}-tr_{target_return}-dis_{discount}-envts_{env_ts_condition}/{seed}"
 
     config.trainer = "DiffuserTrainer"
@@ -14,12 +14,11 @@ def get_config():
     config.env = "hopper-medium-replay-v2"
     config.dataset = "d4rl"
     config.dataset_class = "SequenceDataset"
-    config.use_padding = True
     config.normalizer = "LimitsNormalizer"
     config.max_traj_length = 1000
     config.horizon = 20
     config.termination_penalty = -100.0
-    config.target_return = 3000.0
+    config.target_return = 3500.0
     config.env_ts_condition = True
 
     config.seed = 100
@@ -49,7 +48,7 @@ def get_config():
     config.act_method = "ddpm"
     config.sample_method = "ddpm"
 
-    config.save_period = 100
+    config.save_period = 0
     config.logging = WandBLogger.get_default_config()
 
     config.algo_cfg = ConfigDict()

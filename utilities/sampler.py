@@ -141,6 +141,7 @@ class TrajSampler(object):
             next_observation, reward, terminated, truncated, _ = self.envs.step(
                 action, ready_env_ids
             )
+
             env_ts[ready_env_ids] += 1
             returns_to_go[ready_env_ids] -= reward
             done = np.logical_or(terminated, truncated)
@@ -181,8 +182,8 @@ class TrajSampler(object):
                     next_observations[ind] = []
                     dones[ind] = []
 
-                returns_to_go[env_ind_local] = self._target_return
-                env_ts[env_ind_local] = 0
+                returns_to_go[env_ind_global] = self._target_return
+                env_ts[env_ind_global] = 0
 
                 n_finished_trajs += len(env_ind_local)
                 if n_finished_trajs >= n_trajs:
@@ -197,7 +198,7 @@ class TrajSampler(object):
 
                 obs_reset, _ = self.envs.reset(env_ind_global)
                 obs_reset = self._normalizer.normalize(obs_reset, "observations")
-                next_observation[env_ind_local] = obs_reset
+                next_observation[env_ind_global] = obs_reset
 
             observation = next_observation
         return trajs
