@@ -31,12 +31,10 @@ class SequenceDataset(torch.utils.data.Dataset):
         normalizer: str = "LimitsNormalizer",
         discrete_action: bool = False,
         use_action: bool = True,
-        use_inv_dynamic: bool = True,
         include_returns: bool = True,
-        include_env_ts: bool = True,
+        use_inv_dynamic: bool = True,
     ) -> None:
         self.include_returns = include_returns
-        self.include_env_ts = include_env_ts
         self.use_action = use_action
         self.use_inverse_dynamic = use_inv_dynamic
         self.max_traj_length = max_traj_length
@@ -108,15 +106,14 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         masks = np.zeros((observations.shape[0], 1))
         if self.use_inverse_dynamic:
-            masks[1: mask_end - start] = 1.0
+            masks[1 : mask_end - start] = 1.0
         else:
             masks[: mask_end - start] = 1.0
 
         conditions = self.get_conditions(observations)
         ret_dict = dict(samples=observations, conditions=conditions, masks=masks)
 
-        if self.include_env_ts:
-            ret_dict["env_ts"] = start
+        ret_dict["env_ts"] = start
         if self.include_returns:
             ret_dict["returns"] = self._data.normed_returns[path_ind, start].reshape(
                 1, 1
@@ -154,9 +151,7 @@ class QLearningDataset(SequenceDataset):
         super().normalize(keys)
 
         shape = self._data["next_observations"].shape
-        array = self._data["next_observations"].reshape(
-            shape[0] * shape[1], *shape[2:]
-        )
+        array = self._data["next_observations"].reshape(shape[0] * shape[1], *shape[2:])
         normed = self.normalizer(array, "observations")
         self._data["normed_next_observations"] = normed.reshape(shape)
 

@@ -158,7 +158,9 @@ class DecisionDiffuser(Algo):
 
         return diff_loss
 
-    def get_diff_terms(self, params, samples, conditions, env_ts, returns_to_go, masks, rng):
+    def get_diff_terms(
+        self, params, samples, conditions, env_ts, returns_to_go, masks, rng
+    ):
         rng, split_rng = jax.random.split(rng)
         ts = jax.random.randint(
             split_rng,

@@ -173,7 +173,6 @@ class BaseTrainer:
             horizon=self._cfgs.horizon,
             max_traj_length=self._cfgs.max_traj_length,
             include_returns=self._cfgs.returns_condition,
-            include_env_ts=self._cfgs.env_ts_condition,
             normalizer=self._cfgs.normalizer,
             use_inv_dynamic=getattr(self._cfgs, "use_inv_dynamic", True),
         )
