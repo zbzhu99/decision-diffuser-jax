@@ -12,11 +12,17 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("-g", type=int, default=0)
+    parser.add_argument("-p", "--preallocate", type=float, default=-1)
     args, unknown_flags = parser.parse_known_args()
     if args.g < 0:
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
     else:
         os.environ["CUDA_VISIBLE_DEVICES"] = str(args.g)
+
+    if args.preallocate == 0:
+        os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+    elif args.preallocate > 0:
+        os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(args.preallocate)
 
     from utilities.utils import import_file
 

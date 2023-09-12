@@ -8,10 +8,10 @@ from utilities.utils import compose
 
 from .dataset import Dataset
 from .preprocess import (
+    add_discounted_returns,
     clip_actions,
     pad_trajs_to_dataset,
     split_to_trajs,
-    add_discounted_returns,
 )
 
 

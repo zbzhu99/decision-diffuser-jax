@@ -21,8 +21,8 @@ import jax.numpy as jnp
 import optax
 
 from diffuser.diffusion import GaussianDiffusion
-from utilities.jax_utils import mse_loss, next_rng, value_and_multi_grad
 from utilities.flax_utils import TrainState
+from utilities.jax_utils import mse_loss, next_rng, value_and_multi_grad
 
 from .base_algo import Algo
 

@@ -46,7 +46,7 @@ def to_arch(string):
 def apply_conditioning(x, conditions, condition_dim: int):
     for t, val in conditions.items():
         assert condition_dim is not None
-        x = x.at[:, t, :condition_dim].set(val)
+        x = x.at[:, t[0] : t[1], :condition_dim].set(val)
     return x
 
 

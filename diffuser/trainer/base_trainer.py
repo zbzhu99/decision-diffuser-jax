@@ -148,6 +148,8 @@ class BaseTrainer:
             self._cfgs.eval_env_seed,
             self._cfgs.max_traj_length,
             use_env_ts=self._cfgs.env_ts_condition,
+            history_horizon=getattr(self._cfgs, "history_horizon", 0),
+            update_rtg=getattr(self._cfgs, "update_rtg", False),
         )
         dataset = get_dataset(
             eval_sampler.env,
@@ -171,8 +173,10 @@ class BaseTrainer:
         )(
             dataset,
             horizon=self._cfgs.horizon,
+            history_horizon=getattr(self._cfgs, "history_horizon", 0),
             max_traj_length=self._cfgs.max_traj_length,
             include_returns=self._cfgs.returns_condition,
+            include_env_ts=self._cfgs.env_ts_condition,
             normalizer=self._cfgs.normalizer,
             use_inv_dynamic=getattr(self._cfgs, "use_inv_dynamic", True),
         )

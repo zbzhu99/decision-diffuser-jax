@@ -28,17 +28,21 @@ class SequenceDataset(torch.utils.data.Dataset):
         data: dict,
         horizon: int,
         max_traj_length: int,
+        history_horizon: int = 0,
         normalizer: str = "LimitsNormalizer",
         discrete_action: bool = False,
         use_action: bool = True,
         include_returns: bool = True,
+        include_env_ts: bool = True,
         use_inv_dynamic: bool = True,
     ) -> None:
         self.include_returns = include_returns
+        self.include_env_ts = include_env_ts
         self.use_action = use_action
         self.use_inverse_dynamic = use_inv_dynamic
         self.max_traj_length = max_traj_length
         self.horizon = horizon
+        self.history_horizon = history_horizon
         self.discrete_action = discrete_action
         if discrete_action:
             raise NotImplementedError
@@ -51,10 +55,33 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         self.n_episodes = len(self._data)
         self.normalize()
+        self.pad_history()
         print(self._data)
 
     def __len__(self):
         return len(self._indices)
+
+    def pad_history(self, keys=None):
+        if keys is None:
+            keys = ["normed_observations"]
+            if self.use_action:
+                if self.discrete_action:
+                    keys.append("actions")
+                else:
+                    keys.append("normed_actions")
+
+        for key in keys:
+            shape = self._data[key].shape
+            self._data[key] = np.concatenate(
+                [
+                    np.zeros(
+                        (shape[0], self.history_horizon, *shape[2:]),
+                        dtype=self._data[key].dtype,
+                    ),
+                    self._data[key],
+                ],
+                axis=1,
+            )
 
     def make_indices(self):
         """
@@ -92,32 +119,41 @@ class SequenceDataset(torch.utils.data.Dataset):
         condition on current observation for planning
         """
 
-        return {0: observations[0]}
+        return {(0, self.history_horizon + 1): observations[: self.history_horizon + 1]}
 
     def __getitem__(self, idx):
         path_ind, start, end, mask_end = self._indices[idx]
 
-        observations = self._data.normed_observations[path_ind, start:end]
+        # shift by `self.history_horizon`
+        history_start = start
+        start = history_start + self.history_horizon
+        end = end + self.history_horizon
+        mask_end = mask_end + self.history_horizon
+
+        observations = self._data.normed_observations[path_ind, history_start:end]
         if self.use_action:
             if self.discrete_action:
-                actions = self._data.actions[path_ind, start:end]
+                actions = self._data.actions[path_ind, history_start:end]
             else:
-                actions = self._data.normed_actions[path_ind, start:end]
+                actions = self._data.normed_actions[path_ind, history_start:end]
 
         masks = np.zeros((observations.shape[0], 1))
         if self.use_inverse_dynamic:
-            masks[1 : mask_end - start] = 1.0
+            masks[start - history_start + 1 : mask_end - history_start] = 1.0
         else:
-            masks[: mask_end - start] = 1.0
+            masks[start - history_start : mask_end - history_start] = 1.0
 
         conditions = self.get_conditions(observations)
         ret_dict = dict(samples=observations, conditions=conditions, masks=masks)
 
-        ret_dict["env_ts"] = start
+        if self.include_env_ts:
+            # a little confusing here. Note that history_start is the original ts in the traj
+            ret_dict["env_ts"] = history_start
+        # returns and cost_returns are not padded, so history_start is used
         if self.include_returns:
-            ret_dict["returns"] = self._data.normed_returns[path_ind, start].reshape(
-                1, 1
-            )
+            ret_dict["returns_to_go"] = self._data.normed_returns[
+                path_ind, history_start
+            ].reshape(1, 1)
 
         if self.use_action:
             ret_dict["actions"] = actions
