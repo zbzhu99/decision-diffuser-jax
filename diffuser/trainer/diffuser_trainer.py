@@ -49,6 +49,7 @@ class DiffuserTrainer(BaseTrainer):
             model_mean_type=ModelMeanType.EPSILON,
             model_var_type=ModelVarType.FIXED_SMALL,
             loss_type=LossType.MSE,
+            env_ts_condition=self._cfgs.env_ts_condition,
             returns_condition=self._cfgs.returns_condition,
             condition_guidance_w=self._cfgs.condition_guidance_w,
             sample_temperature=self._cfgs.algo_cfg.sample_temperature,
