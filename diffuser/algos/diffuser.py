@@ -19,6 +19,7 @@ class DecisionDiffuser(Algo):
         self.planner = planner
         self.inv_model = inv_model
         self.horizon = self.config.horizon
+        self.history_horizon = self.config.history_horizon
 
         if inv_model is None:
             self.observation_dim = planner.sample_dim - planner.action_dim
@@ -46,10 +47,16 @@ class DecisionDiffuser(Algo):
         planner_params = self.planner.init(
             next_rng(),
             next_rng(),
-            jnp.zeros((10, self.horizon, self.planner.sample_dim)),  # samples
-            {0: jnp.zeros((10, self.observation_dim))},  # conditions
-            jnp.zeros((10,), dtype=jnp.int32),  # ts
-            masks=jnp.ones((10, self.horizon, 1)),
+            samples=jnp.zeros(
+                (10, self.horizon + self.history_horizon, self.planner.sample_dim)
+            ),
+            conditions={
+                (0, self.history_horizon + 1): jnp.zeros(
+                    (10, self.history_horizon + 1, self.observation_dim)
+                )
+            },
+            ts=jnp.zeros((10,), dtype=jnp.int32),
+            masks=jnp.ones((10, self.horizon + self.history_horizon, 1)),
             env_ts=jnp.zeros((10,), dtype=jnp.int32),
             returns_to_go=jnp.zeros((10, 1)),
             method=self.planner.loss,
@@ -89,6 +96,14 @@ class DecisionDiffuser(Algo):
         if self.inv_model is None:
             loss_weights[0, -self.action_dim :] = act_weight
 
+        if self.history_horizon > 0:
+            loss_weights = np.concatenate(
+                [
+                    np.zeros((self.history_horizon, *loss_weights.shape[1:])),
+                    loss_weights,
+                ],
+                axis=0,
+            )
         return jnp.array(loss_weights)
 
     @partial(jax.jit, static_argnames=("self"))
@@ -116,6 +131,10 @@ class DecisionDiffuser(Algo):
                 grads=grad_inv_model[0]["inv_model"]
             )
             metrics["inv_loss"] = aux_inv_model["loss"]
+            metrics["inv_grad_norm"] = optax.global_norm(grad_inv_model[0]["inv_model"])
+            metrics["inv_weight_norm"] = optax.global_norm(
+                train_states["inv_model"].params
+            )
 
         return train_states, metrics
 
@@ -123,17 +142,21 @@ class DecisionDiffuser(Algo):
         def inv_loss(params, rng):
             samples = batch["samples"]
             actions = batch["actions"]
+            masks = batch["masks"]
 
             samples_t = samples[:, :-1]
             samples_tp1 = samples[:, 1:]
             samples_comb = jnp.concatenate([samples_t, samples_tp1], axis=-1)
             samples_comb = jnp.reshape(samples_comb, (-1, self.observation_dim * 2))
+            # here we use masks[:, 1:] rather than masks[: :-1]. if samples_tp1 is model generated,
+            # then the inv model should be trained on such t.
+            masks = jnp.reshape(masks[:, 1:], (-1, 1))
 
             actions = actions[:, :-1]
             actions = jnp.reshape(actions, (-1, self.action_dim))
 
             pred_actions = self.inv_model.apply(params["inv_model"], samples_comb)
-            loss = jnp.mean((pred_actions - actions) ** 2)
+            loss = jnp.mean(masks * (pred_actions - actions) ** 2) / jnp.mean(masks)
             return (loss,), locals()
 
         return inv_loss
@@ -147,7 +170,7 @@ class DecisionDiffuser(Algo):
 
             conditions = batch["conditions"]
             env_ts = batch["env_ts"]
-            returns_to_go = batch.get("returns", None)
+            returns_to_go = batch.get("returns_to_go", None)
             masks = batch["masks"]
             terms, ts = self.get_diff_terms(
                 params, samples, conditions, env_ts, returns_to_go, masks, rng

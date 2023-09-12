@@ -150,17 +150,18 @@ class GaussianDiffusion:
     def __init__(
         self,
         *,
-        num_timesteps,
-        schedule_name,
-        model_mean_type,
-        model_var_type,
-        loss_type,
-        returns_condition=False,
-        condition_guidance_w=1.2,
-        min_value=-1.0,
-        max_value=1.0,
-        rescale_timesteps=False,
-        sample_temperature=1.0,
+        num_timesteps: int,
+        schedule_name: str,
+        model_mean_type: str,
+        model_var_type: str,
+        loss_type: str,
+        env_ts_condition: bool = False,
+        returns_condition: bool = False,
+        condition_guidance_w: float = 1.2,
+        min_value: float = -1.0,
+        max_value: float = 1.0,
+        rescale_timesteps: bool = False,
+        sample_temperature: float = 1.0,
     ):
         self.schedule_name = schedule_name
         self.model_mean_type = model_mean_type
@@ -170,8 +171,9 @@ class GaussianDiffusion:
         self.min_value = min_value
         self.max_value = max_value
         self.sample_temperature = sample_temperature
-        self.loss_weights = None  # now set externally
+        self.loss_weights = None  # set externally
 
+        self.env_ts_condition = env_ts_condition
         self.returns_condition = returns_condition
         self.condition_guidance_w = condition_guidance_w
 
@@ -518,9 +520,11 @@ class GaussianDiffusion:
             t = np.ones((x.shape[0],), dtype=np.int32) * i
 
             model_kwargs = {}
-            if env_ts is not None:
+            if self.env_ts_condition:
+                assert env_ts is not None
                 model_kwargs["env_ts"] = env_ts
             if self.returns_condition:
+                assert returns_to_go is not None
                 model_kwargs["returns_to_go"] = returns_to_go
                 model_output_cond = model_forward(
                     None, x, self._scale_timesteps(t), use_dropout=False, **model_kwargs
@@ -577,9 +581,11 @@ class GaussianDiffusion:
             t = np.ones((x.shape[0],), dtype=np.int32) * indices[i]
 
             model_kwargs = {}
-            if env_ts is not None:
+            if self.env_ts_condition:
+                assert env_ts is not None
                 model_kwargs["env_ts"] = env_ts
             if self.returns_condition:
+                assert returns_to_go is not None
                 model_kwargs["returns_to_go"] = returns_to_go
                 model_output_cond = mdl(
                     None, x, self._scale_timesteps(t), use_dropout=False, **model_kwargs

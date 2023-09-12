@@ -44,7 +44,6 @@ class OnlineEvaluator(BaseEvaluator):
             metrics["best_normalized_return" + post] = self._best_returns[method] = max(
                 self._best_returns[method], cur_return
             )
-            metrics["done" + post] = np.mean([np.sum(t["dones"]) for t in trajs])
 
         self.dump_metrics(metrics, epoch, suffix="_online")
         return metrics

@@ -14,6 +14,7 @@
 
 """Agent trajectory samplers."""
 
+from collections import deque
 import time
 from typing import Callable
 
@@ -85,9 +86,13 @@ class TrajSampler(object):
         max_traj_length: int = 1000,
         render: bool = False,
         use_env_ts: bool = False,
+        history_horizon: int = 0,
+        update_rtg: bool = False,
     ):
         self.max_traj_length = max_traj_length
         self.use_env_ts = use_env_ts
+        self.history_horizon = history_horizon
+        self.update_rtg = update_rtg
         self._env = env_fn()
         self._envs = get_envs(env_fn, num_envs)
         self._envs.seed(seed)
@@ -95,12 +100,14 @@ class TrajSampler(object):
         self._render = render
         self._normalizer = None
         self._target_return = None
+        self._discount = 1.0
 
     def set_normalizer(self, normalizer):
         self._normalizer = normalizer
 
-    def set_target_return(self, target_return):
+    def set_target_return(self, target_return, discount: float = 1.0):
         self._target_return = target_return
+        self._discount = discount
 
     def sample(
         self,
@@ -113,11 +120,16 @@ class TrajSampler(object):
         ready_env_ids = np.arange(min(self._num_envs, n_trajs))
         if self._target_return is not None:
             returns_to_go = np.ones(len(ready_env_ids)) * self._target_return
-        if self.use_env_ts:
-            env_ts = np.zeros(len(ready_env_ids), dtype=np.int32)
+        env_ts = np.zeros(len(ready_env_ids), dtype=np.int32)
 
         observation, _ = self.envs.reset(ready_env_ids)
         observation = self._normalizer.normalize(observation, "observations")
+
+        if self.history_horizon > 0:
+            obs_queue = deque(maxlen=self.history_horizon + 1)
+            obs_queue.extend(
+                [np.zeros_like(observation) for _ in range(self.history_horizon)]
+            )
 
         observations = [[] for i in range(len(ready_env_ids))]
         actions = [[] for _ in range(len(ready_env_ids))]
@@ -135,7 +147,16 @@ class TrajSampler(object):
                 )
             if self.use_env_ts:
                 policy_kwargs["env_ts"] = env_ts[ready_env_ids]
-            action = policy(observation, deterministic=deterministic, **policy_kwargs)
+
+            if self.history_horizon > 0:
+                obs_queue.append(observation)
+                full_observation = np.stack(list(obs_queue), axis=1)
+            else:
+                full_observation = np.expand_dims(observation, axis=1)
+
+            action = policy(
+                full_observation, deterministic=deterministic, **policy_kwargs
+            )
             action = self._normalizer.unnormalize(action, "actions")
 
             next_observation, reward, terminated, truncated, _ = self.envs.step(
@@ -143,7 +164,11 @@ class TrajSampler(object):
             )
 
             env_ts[ready_env_ids] += 1
-            returns_to_go[ready_env_ids] -= reward
+            # ret0 = r0 + r1 * discount + r2 * discount^2 + ...
+            # ret1 = r1 + r2 * discount + r3 * discount^2 + ... = (ret0 - r0) / discount
+            if self._target_return is not None and self.update_rtg:
+                returns_to_go[ready_env_ids] = (returns_to_go[ready_env_ids] - reward) / self._discount
+
             done = np.logical_or(terminated, truncated)
             if self._render:
                 getattr(self.envs, env_render_fn)()
@@ -182,8 +207,13 @@ class TrajSampler(object):
                     next_observations[ind] = []
                     dones[ind] = []
 
-                returns_to_go[env_ind_global] = self._target_return
+                if self._target_return is not None and self.update_rtg:
+                    returns_to_go[env_ind_global] = self._target_return
                 env_ts[env_ind_global] = 0
+
+                if self.history_horizon > 0:
+                    for i in range(len(obs_queue)):
+                        obs_queue[i][env_ind_global] = 0.0
 
                 n_finished_trajs += len(env_ind_local)
                 if n_finished_trajs >= n_trajs:
