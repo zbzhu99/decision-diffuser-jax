@@ -17,9 +17,7 @@ class DiffuserTrainer(BaseTrainer):
 
         # setup dataset and eval_sample
         dataset, eval_sampler = self._setup_dataset()
-        eval_sampler.set_target_return(
-            self._cfgs.target_return, self._cfgs.discount
-        )
+        eval_sampler.set_target_return(self._cfgs.target_return, self._cfgs.discount)
         data_sampler = torch.utils.data.RandomSampler(dataset)
         self._dataloader = cycle(
             torch.utils.data.DataLoader(

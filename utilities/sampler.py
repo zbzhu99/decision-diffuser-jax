@@ -14,8 +14,8 @@
 
 """Agent trajectory samplers."""
 
-from collections import deque
 import time
+from collections import deque
 from typing import Callable
 
 import numpy as np
@@ -167,7 +167,9 @@ class TrajSampler(object):
             # ret0 = r0 + r1 * discount + r2 * discount^2 + ...
             # ret1 = r1 + r2 * discount + r3 * discount^2 + ... = (ret0 - r0) / discount
             if self._target_return is not None and self.update_rtg:
-                returns_to_go[ready_env_ids] = (returns_to_go[ready_env_ids] - reward) / self._discount
+                returns_to_go[ready_env_ids] = (
+                    returns_to_go[ready_env_ids] - reward
+                ) / self._discount
 
             done = np.logical_or(terminated, truncated)
             if self._render:

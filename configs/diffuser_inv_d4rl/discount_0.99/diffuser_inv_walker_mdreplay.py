@@ -4,9 +4,7 @@ from configs.diffuser_inv_d4rl.base_config import get_base_config
 def get_config():
     config = get_base_config()
     config.exp_name = "diffuser_inv_d4rl_reproduce"
-    config.log_dir_format = (
-        "{exp_name}/{env}/h_{horizon}-hh_{history_horizon}-tr_{target_return}-dis_{discount}-nstep_{algo_cfg.num_timesteps}/{seed}"
-    )
+    config.log_dir_format = "{exp_name}/{env}/h_{horizon}-hh_{history_horizon}-tr_{target_return}-dis_{discount}-nstep_{algo_cfg.num_timesteps}/{seed}"
 
     config.env = "walker2d-medium-replay-v2"
     config.target_return = 400.0

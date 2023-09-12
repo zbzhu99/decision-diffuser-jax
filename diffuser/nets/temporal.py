@@ -216,7 +216,13 @@ class DiffusionPlanner(nn.Module):
         )
 
     def dpm_sample(
-        self, rng, samples, conditions, env_ts=None, deterministic=False, returns_to_go=None
+        self,
+        rng,
+        samples,
+        conditions,
+        env_ts=None,
+        deterministic=False,
+        returns_to_go=None,
     ):
         raise NotImplementedError
         noise_clip = True
@@ -283,7 +289,16 @@ class DiffusionPlanner(nn.Module):
             rng, conditions, env_ts, deterministic, returns_to_go
         )
 
-    def loss(self, rng_key, samples, conditions, ts, env_ts=None, masks=None, returns_to_go=None):
+    def loss(
+        self,
+        rng_key,
+        samples,
+        conditions,
+        ts,
+        env_ts=None,
+        masks=None,
+        returns_to_go=None,
+    ):
         terms = self.diffusion.training_losses(
             rng_key,
             model_forward=self.base_net,

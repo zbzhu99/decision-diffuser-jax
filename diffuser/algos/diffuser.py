@@ -7,8 +7,8 @@ import numpy as np
 import optax
 
 from diffuser.diffusion import GaussianDiffusion, ModelMeanType
+from utilities.flax_utils import TrainState, apply_ema_decay, copy_params_to_ema
 from utilities.jax_utils import next_rng, value_and_multi_grad
-from utilities.flax_utils import apply_ema_decay, copy_params_to_ema, TrainState
 
 from .base_algo import Algo
 
@@ -169,9 +169,9 @@ class DecisionDiffuser(Algo):
                 samples = batch["samples"]
 
             conditions = batch["conditions"]
-            env_ts = batch["env_ts"]
+            env_ts = batch.get("env_ts", None)
             returns_to_go = batch.get("returns_to_go", None)
-            masks = batch["masks"]
+            masks = batch.get("masks", None)
             terms, ts = self.get_diff_terms(
                 params, samples, conditions, env_ts, returns_to_go, masks, rng
             )
