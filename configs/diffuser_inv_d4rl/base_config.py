@@ -23,6 +23,7 @@ def get_base_config():
     config.termination_penalty = 0.0
     config.target_return = config_dict.required_placeholder(float)
     config.update_rtg = True
+    config.use_padding = True
 
     config.seed = 100
     config.batch_size = 32

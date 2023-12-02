@@ -32,12 +32,14 @@ class SequenceDataset(torch.utils.data.Dataset):
         normalizer: str = "LimitsNormalizer",
         discrete_action: bool = False,
         use_action: bool = True,
+        use_padding: bool = True,
         include_returns: bool = True,
         include_env_ts: bool = True,
         use_inv_dynamic: bool = True,
     ) -> None:
         self.include_returns = include_returns
         self.include_env_ts = include_env_ts
+        self.use_padding = use_padding
         self.use_action = use_action
         self.use_inverse_dynamic = use_inv_dynamic
         self.max_traj_length = max_traj_length
@@ -91,8 +93,14 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         indices = []
         for i, traj_length in enumerate(self._data["traj_lengths"]):
+            if self.use_padding:
+                max_start = traj_length - 1
+            else:
+                max_start = traj_length - self.horizon
+                if max_start < 0:
+                    continue
             # get `end` and `mask_end` for each `start`
-            for start in range(traj_length - 1):
+            for start in range(max_start):
                 end = start + self.horizon
                 mask_end = min(end, traj_length)
                 indices.append((i, start, end, mask_end))
@@ -151,6 +159,7 @@ class SequenceDataset(torch.utils.data.Dataset):
             ret_dict["env_ts"] = history_start
         # returns and cost_returns are not padded, so history_start is used
         if self.include_returns:
+            # TODO(zbzhu): also pad returns and cost_returns ??
             ret_dict["returns_to_go"] = self._data.normed_returns[
                 path_ind, history_start
             ].reshape(1, 1)
