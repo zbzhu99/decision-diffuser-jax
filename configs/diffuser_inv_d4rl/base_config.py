@@ -74,5 +74,8 @@ def get_base_config():
     config.algo_cfg.ema_decay = 0.995
     config.algo_cfg.step_start_ema = 2000
     config.algo_cfg.update_ema_every = 10
+    # for ddim
+    config.algo_cfg.use_ddim = False
+    config.algo_cfg.n_ddim_steps = 15
 
     return config

@@ -6,7 +6,7 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 
-from diffuser.diffusion import GaussianDiffusion, ModelMeanType
+from diffuser.diffusion import GaussianDiffusion
 from utilities.flax_utils import TrainState, apply_ema_decay, copy_params_to_ema
 from utilities.jax_utils import next_rng, value_and_multi_grad
 
@@ -36,9 +36,6 @@ class DecisionDiffuser(Algo):
 
         self._total_steps = 0
         self._train_states = {}
-
-        def get_lr(lr_decay=False):
-            return self.config.lr
 
         def get_optimizer(lr_decay=False, weight_decay=cfg.weight_decay):
             opt = optax.adam(self.config.lr)
@@ -91,8 +88,7 @@ class DecisionDiffuser(Algo):
         discounts = discounts / discounts.mean()
         loss_weights = einops.einsum(discounts, dim_weights, "h,t->h t")
         # Cause things are conditioned on t=0
-        if self.diffusion.model_mean_type == ModelMeanType.EPSILON:
-            loss_weights[0, :] = 0
+        loss_weights[0, :] = 0
         if self.inv_model is None:
             loss_weights[0, -self.action_dim :] = act_weight
 

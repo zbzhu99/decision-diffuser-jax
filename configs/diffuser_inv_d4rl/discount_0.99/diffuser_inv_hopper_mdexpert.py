@@ -21,4 +21,7 @@ def get_config():
 
     config.save_period = 0
 
+    config.algo_cfg.use_ddim = True
+    config.algo_cfg.n_ddim_steps = 15
+
     return config

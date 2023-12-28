@@ -6,7 +6,7 @@ import jax
 import jax.numpy as jnp
 from einops import repeat
 
-from diffuser.diffusion import GaussianDiffusion, ModelMeanType, _extract_into_tensor
+from diffuser.diffusion import GaussianDiffusion, _extract_into_tensor
 from diffuser.dpm_solver import DPM_Solver, NoiseScheduleVP
 from diffuser.nets.helpers import TimeEmbedding, mish, multiple_action_q_function
 from utilities.jax_utils import extend_and_repeat
@@ -76,7 +76,6 @@ class DiffusionPolicy(nn.Module):
             model_forward=partial(self.base_net, observations),
             shape=shape,
             conditions=conditions,
-            clip_denoised=True,
         )
 
     def dpm_sample(
@@ -117,7 +116,7 @@ class DiffusionPolicy(nn.Module):
         dpm_sampler = DPM_Solver(
             model_fn=wrap_model(partial(self.base_net, observations)),
             noise_schedule=ns,
-            predict_x0=self.diffusion.model_mean_type is ModelMeanType.START_X,
+            predict_x0=False,
         )
         x = jax.random.normal(rng, shape)
         out = dpm_sampler.sample(x, steps=self.dpm_steps, t_end=self.dpm_t_end)
@@ -137,7 +136,6 @@ class DiffusionPolicy(nn.Module):
             model_forward=partial(self.base_net, observations),
             shape=shape,
             conditions=conditions,
-            clip_denoised=True,
         )
 
     def loss(self, rng_key, observations, actions, conditions, ts):

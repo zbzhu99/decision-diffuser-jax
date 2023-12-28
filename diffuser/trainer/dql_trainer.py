@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 from diffuser.algos import DiffusionQL
-from diffuser.diffusion import GaussianDiffusion, LossType, ModelMeanType, ModelVarType
+from diffuser.diffusion import GaussianDiffusion, LossType
 from diffuser.nets import Critic, DiffusionPolicy, GaussianPolicy, Value
 from diffuser.policy import SamplerPolicy
 from diffuser.trainer.base_trainer import BaseTrainer
@@ -78,8 +78,6 @@ class DiffusionQLTrainer(BaseTrainer):
         gd = GaussianDiffusion(
             num_timesteps=self._cfgs.algo_cfg.num_timesteps,
             schedule_name=self._cfgs.algo_cfg.schedule_name,
-            model_mean_type=ModelMeanType.EPSILON,
-            model_var_type=ModelVarType.FIXED_SMALL,
             loss_type=LossType.MSE,
             # min_value=-self._max_action,
             # max_value=self._max_action,

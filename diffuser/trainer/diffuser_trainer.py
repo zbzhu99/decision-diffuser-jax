@@ -1,7 +1,7 @@
 import torch
 
 from diffuser.algos import DecisionDiffuser
-from diffuser.diffusion import GaussianDiffusion, LossType, ModelMeanType, ModelVarType
+from diffuser.diffusion import GaussianDiffusion, LossType
 from diffuser.nets import DiffusionPlanner, InverseDynamic
 from diffuser.policy import DiffuserPolicy
 from diffuser.trainer.base_trainer import BaseTrainer
@@ -46,13 +46,13 @@ class DiffuserTrainer(BaseTrainer):
         gd = GaussianDiffusion(
             num_timesteps=self._cfgs.algo_cfg.num_timesteps,
             schedule_name=self._cfgs.algo_cfg.schedule_name,
-            model_mean_type=ModelMeanType.EPSILON,
-            model_var_type=ModelVarType.FIXED_SMALL,
             loss_type=LossType.MSE,
             env_ts_condition=self._cfgs.env_ts_condition,
             returns_condition=self._cfgs.returns_condition,
             condition_guidance_w=self._cfgs.condition_guidance_w,
             sample_temperature=self._cfgs.algo_cfg.sample_temperature,
+            use_ddim=self._cfgs.algo_cfg.use_ddim,
+            n_ddim_steps=self._cfgs.algo_cfg.n_ddim_steps,
         )
 
         if self._cfgs.use_inv_dynamic:

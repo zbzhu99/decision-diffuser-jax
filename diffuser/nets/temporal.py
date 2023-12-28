@@ -7,7 +7,7 @@ import jax
 import jax.numpy as jnp
 from einops.layers.flax import Rearrange
 
-from diffuser.diffusion import GaussianDiffusion, ModelMeanType, _extract_into_tensor
+from diffuser.diffusion import GaussianDiffusion, _extract_into_tensor
 from diffuser.dpm_solver import DPM_Solver, NoiseScheduleVP
 
 from .helpers import Conv1dBlock, DownSample1d, TimeEmbedding, UpSample1d, mish
@@ -212,7 +212,6 @@ class DiffusionPlanner(nn.Module):
             condition_dim=self.sample_dim - self.action_dim,
             returns_to_go=returns_to_go,
             env_ts=env_ts,
-            clip_denoised=True,
         )
 
     def dpm_sample(
@@ -259,28 +258,12 @@ class DiffusionPlanner(nn.Module):
                 )
             ),
             noise_schedule=ns,
-            predict_x0=self.diffusion.model_mean_type is ModelMeanType.START_X,
+            predict_x0=False,
         )
         x = jax.random.normal(rng, samples.shape)
         out = dpm_sampler.sample(x, steps=self.dpm_steps, t_end=self.dpm_t_end)
 
         return out
-
-    def ddim_sample(
-        self, rng, conditions, env_ts=None, deterministic=False, returns_to_go=None
-    ):
-        # expect a loop-jitted version of ddim_sample_loop, otherwise it's too slow
-        raise NotImplementedError
-        batch_size = list(conditions.items())[0].shape[0]
-        return self.diffusion.ddim_sample_loop(
-            rng_key=rng,
-            model_forward=self.base_net,
-            shape=(batch_size, self.horizon + self.history_horizon, self.sample_dim),
-            conditions=conditions,
-            returns_to_go=returns_to_go,
-            env_ts=env_ts,
-            clip_denoised=True,
-        )
 
     def __call__(
         self, rng, conditions, env_ts=None, deterministic=False, returns_to_go=None

@@ -201,9 +201,12 @@ class DiffusionQL(Algo):
             method=self.policy.loss,
         )
         if self.config.use_pred_astart:
-            pred_astart = self.diffusion.p_mean_variance(
-                terms["model_output"], terms["x_t"], ts
-            )["pred_xstart"]
+            pred_astart = self.diffusion.noise_scheduler.step(
+                self.diffusion.noise_scheduler_state,
+                terms["model_output"],
+                ts,
+                terms["x_t"],
+            ).pred_original_sample
         else:
             rng, split_rng = jax.random.split(rng)
             pred_astart = self.policy.apply(
