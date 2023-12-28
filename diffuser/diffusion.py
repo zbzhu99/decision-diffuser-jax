@@ -303,7 +303,7 @@ class GaussianDiffusion:
 
         def loop_stop_fn(mdl, c):
             i, _, _ = c
-            return i < self.num_timesteps
+            return i < self.num_inference_steps
 
         _, _, x = flax.linen.while_loop(
             loop_stop_fn, body_fn, model_forward, (0, rng_key, x)

@@ -88,10 +88,12 @@ class TrajSampler(object):
         use_env_ts: bool = False,
         history_horizon: int = 0,
         update_rtg: bool = False,
+        padding_type: str = "zero",
     ):
         self.max_traj_length = max_traj_length
         self.use_env_ts = use_env_ts
         self.history_horizon = history_horizon
+        self.padding_type = padding_type
         self.update_rtg = update_rtg
         self._env = env_fn()
         self._envs = get_envs(env_fn, num_envs)
@@ -127,9 +129,14 @@ class TrajSampler(object):
 
         if self.history_horizon > 0:
             obs_queue = deque(maxlen=self.history_horizon + 1)
-            obs_queue.extend(
-                [np.zeros_like(observation) for _ in range(self.history_horizon)]
-            )
+            if self.padding_type == "zero":
+                obs_queue.extend(
+                    [np.zeros_like(observation) for _ in range(self.history_horizon)]
+                )
+            elif self.padding_type == "same":
+                obs_queue.extend([observation for _ in range(self.history_horizon)])
+            else:
+                raise ValueError(f"Invalid padding type {self.padding_type}")
 
         observations = [[] for i in range(len(ready_env_ids))]
         actions = [[] for _ in range(len(ready_env_ids))]
@@ -213,10 +220,6 @@ class TrajSampler(object):
                     returns_to_go[env_ind_global] = self._target_return
                 env_ts[env_ind_global] = 0
 
-                if self.history_horizon > 0:
-                    for i in range(len(obs_queue)):
-                        obs_queue[i][env_ind_global] = 0.0
-
                 n_finished_trajs += len(env_ind_local)
                 if n_finished_trajs >= n_trajs:
                     trajs = trajs[:n_trajs]
@@ -231,6 +234,17 @@ class TrajSampler(object):
                 obs_reset, _ = self.envs.reset(env_ind_global)
                 obs_reset = self._normalizer.normalize(obs_reset, "observations")
                 next_observation[env_ind_global] = obs_reset
+
+                if self.history_horizon > 0:
+                    for i in range(len(obs_queue)):
+                        if self.padding_type == "zero":
+                            obs_queue[i][env_ind_global] = 0.0
+                        elif self.padding_type == "same":
+                            obs_queue[i][env_ind_global] = obs_reset
+                        else:
+                            raise ValueError(
+                                f"Invalid padding type {self.padding_type}"
+                            )
 
             observation = next_observation
         return trajs

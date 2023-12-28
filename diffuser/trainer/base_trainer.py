@@ -150,6 +150,7 @@ class BaseTrainer:
             use_env_ts=self._cfgs.env_ts_condition,
             history_horizon=getattr(self._cfgs, "history_horizon", 0),
             update_rtg=getattr(self._cfgs, "update_rtg", False),
+            padding_type=self._cfgs.padding_type,
         )
         dataset = get_dataset(
             eval_sampler.env,
@@ -180,6 +181,7 @@ class BaseTrainer:
             normalizer=self._cfgs.normalizer,
             use_inv_dynamic=getattr(self._cfgs, "use_inv_dynamic", True),
             use_padding=self._cfgs.use_padding,
+            padding_type=self._cfgs.padding_type,
         )
         eval_sampler.set_normalizer(dataset.normalizer)
 

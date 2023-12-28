@@ -33,6 +33,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         discrete_action: bool = False,
         use_action: bool = True,
         use_padding: bool = True,
+        padding_type: str = "zero",
         include_returns: bool = True,
         include_env_ts: bool = True,
         use_inv_dynamic: bool = True,
@@ -46,6 +47,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         self.horizon = horizon
         self.history_horizon = history_horizon
         self.discrete_action = discrete_action
+        self.padding_type = padding_type
         if discrete_action:
             raise NotImplementedError
 
@@ -58,12 +60,13 @@ class SequenceDataset(torch.utils.data.Dataset):
         self.n_episodes = len(self._data)
         self.normalize()
         self.pad_history()
+        self.pad_future()
         print(self._data)
 
     def __len__(self):
         return len(self._indices)
 
-    def pad_history(self, keys=None):
+    def pad_history(self, keys: List[str] = None):
         if keys is None:
             keys = ["normed_observations"]
             if self.use_action:
@@ -74,16 +77,54 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         for key in keys:
             shape = self._data[key].shape
-            self._data[key] = np.concatenate(
-                [
-                    np.zeros(
-                        (shape[0], self.history_horizon, *shape[2:]),
-                        dtype=self._data[key].dtype,
-                    ),
-                    self._data[key],
-                ],
-                axis=1,
-            )
+            if self.padding_type == "zero":
+                self._data[key] = np.concatenate(
+                    [
+                        np.zeros(
+                            (shape[0], self.history_horizon, *shape[2:]),
+                            dtype=self._data[key].dtype,
+                        ),
+                        self._data[key],
+                    ],
+                    axis=1,
+                )
+            elif self.padding_type == "same":
+                self._data[key] = np.concatenate(
+                    [
+                        np.repeat(
+                            self._data[key][:, :1],
+                            self.history_horizon,
+                            axis=1,
+                        ),
+                        self._data[key],
+                    ],
+                    axis=1,
+                )
+            else:
+                raise ValueError(f"Invalid padding type {self.padding_type}")
+
+    def pad_future(self, keys: List[str] = None):
+        if self.padding_type == "zero":
+            # already padded with zero in preprocessing
+            return
+
+        elif self.padding_type == "same":
+            if keys is None:
+                keys = ["normed_observations"]
+                if self.use_action:
+                    if self.discrete_action:
+                        keys.append("actions")
+                    else:
+                        keys.append("normed_actions")
+
+            for key in keys:
+                self._data[key][:, -(self.horizon - 1) :] = np.repeat(
+                    self._data[key][:, -self.horizon : -(self.horizon - 1)],
+                    self.horizon - 1,
+                    axis=1,
+                )
+        else:
+            raise ValueError(f"Invalid padding type {self.padding_type}")
 
     def make_indices(self):
         """

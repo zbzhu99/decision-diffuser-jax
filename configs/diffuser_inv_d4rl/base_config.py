@@ -24,6 +24,7 @@ def get_base_config():
     config.target_return = config_dict.required_placeholder(float)
     config.update_rtg = True
     config.use_padding = True
+    config.padding_type = "zero"
 
     config.seed = 100
     config.batch_size = 32
