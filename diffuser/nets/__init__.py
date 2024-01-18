@@ -1,6 +1,6 @@
 from .helpers import GaussianPolicy
 from .stational import Critic, DiffusionPolicy, InverseDynamic, Value
-from .temporal import DiffusionPlanner
+from .temporal import DiffusionPlanner, ValueFunction
 
 __all__ = [
     "DiffusionPolicy",
@@ -9,4 +9,5 @@ __all__ = [
     "GaussianPolicy",
     "DiffusionPlanner",
     "InverseDynamic",
+    "ValueFunction",
 ]

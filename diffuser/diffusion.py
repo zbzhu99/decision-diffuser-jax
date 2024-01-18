@@ -45,6 +45,22 @@ class LossType(enum.Enum):
     )  # use raw MSE loss (with RESCALED_KL when learning variances)
 
 
+def _extract_into_tensor(arr, timesteps, broadcast_shape):
+    """
+    Extract values from a 1-D numpy array for a batch of indices.
+
+    :param arr: the 1-D numpy array.
+    :param timesteps: a tensor of indices into the array to extract.
+    :param broadcast_shape: a larger shape of K dimensions with the batch
+                            dimension equal to the length of timesteps.
+    :return: a tensor of shape [batch_size, 1, ...] where the shape has K dims.
+    """
+    res = arr[timesteps].astype(np.float32)
+    while len(res.shape) < len(broadcast_shape):
+        res = res[..., None]
+    return np.broadcast_to(res, broadcast_shape)
+
+
 class GaussianDiffusion:
     """
     Utilities for training and sampling diffusion models.
@@ -388,82 +404,52 @@ class GaussianDiffusion:
         return terms
 
 
-def normal_kl(mean1, logvar1, mean2, logvar2):
-    """
-    Compute the KL divergence between two gaussians.
-    Shapes are automatically broadcasted, so batches can be compared to
-    scalars, among other use cases.
-    """
-    tensor = None
-    for obj in (mean1, logvar1, mean2, logvar2):
-        if isinstance(obj, np.ndarray):
-            tensor = obj
-            break
-    assert tensor is not None, "at least one argument must be a Tensor"
+class ValueDiffusion(GaussianDiffusion):
+    def forward(
+        self,
+        rng_key,
+        model_forward,
+        x_start,
+        conditions,
+        t,
+        condition_dim: Optional[int] = None,
+    ):
+        rng_key, sample_key = jax.random.split(rng_key)
+        noise = jax.random.normal(sample_key, x_start.shape, dtype=x_start.dtype)
 
-    # Force variances to be Tensors. Broadcasting helps convert scalars to
-    # Tensors, but it does not work for th.exp().
-    logvar1, logvar2 = [
-        x if isinstance(x, np.ndarray) else np.array(x) for x in (logvar1, logvar2)
-    ]
+        x_t = self.noise_scheduler.add_noise(
+            self.noise_scheduler_state, x_start, noise, t
+        )
+        x_t = apply_conditioning(x_t, conditions, condition_dim)
 
-    return 0.5 * (
-        -1.0
-        + logvar2
-        - logvar1
-        + np.exp(logvar1 - logvar2)
-        + ((mean1 - mean2) ** 2) * np.exp(-logvar2)
-    )
+        rng_key, sample_key = jax.random.split(rng_key)
+        model_output = model_forward(
+            sample_key,
+            x_t,
+            self._scale_timesteps(t),
+        )
+        return model_output
 
+    def training_losses(
+        self,
+        rng_key,
+        model_forward,
+        x_start,
+        conditions,
+        target,
+        t,
+        condition_dim: Optional[int] = None,
+    ):
+        model_output = self.forward(
+            rng_key,
+            model_forward,
+            x_start,
+            conditions,
+            t,
+            condition_dim=condition_dim,
+        )
+        terms = {"model_output": model_output}
 
-def approx_standard_normal_cdf(x):
-    """
-    A fast approximation of the cumulative distribution function of the
-    standard normal.
-    """
-    return 0.5 * (1.0 + np.tanh(np.sqrt(2.0 / np.pi) * (x + 0.044715 * np.power(x, 3))))
-
-
-def discretized_gaussian_log_likelihood(x, *, means, log_scales):
-    """
-    Compute the log-likelihood of a Gaussian distribution discretizing to a
-    given image.
-    :param x: the target images. It is assumed that this was uint8 values,
-              rescaled to the range [-1, 1].
-    :param means: the Gaussian mean Tensor.
-    :param log_scales: the Gaussian log stddev Tensor.
-    :return: a tensor like x of log probabilities (in nats).
-    """
-    assert x.shape == means.shape == log_scales.shape
-    centered_x = x - means
-    inv_stdv = np.exp(-log_scales)
-    plus_in = inv_stdv * (centered_x + 1.0 / 255.0)
-    cdf_plus = approx_standard_normal_cdf(plus_in)
-    min_in = inv_stdv * (centered_x - 1.0 / 255.0)
-    cdf_min = approx_standard_normal_cdf(min_in)
-    log_cdf_plus = np.log(cdf_plus.clip(a_min=1e-12))
-    log_one_minus_cdf_min = np.log((1.0 - cdf_min).clip(a_min=1e-12))
-    cdf_delta = cdf_plus - cdf_min
-    log_probs = np.where(
-        x < -0.999,
-        log_cdf_plus,
-        np.where(x > 0.999, log_one_minus_cdf_min, np.log(cdf_delta.clip(a_min=1e-12))),
-    )
-    assert log_probs.shape == x.shape
-    return log_probs
-
-
-def _extract_into_tensor(arr, timesteps, broadcast_shape):
-    """
-    Extract values from a 1-D numpy array for a batch of indices.
-
-    :param arr: the 1-D numpy array.
-    :param timesteps: a tensor of indices into the array to extract.
-    :param broadcast_shape: a larger shape of K dimensions with the batch
-                            dimension equal to the length of timesteps.
-    :return: a tensor of shape [batch_size, 1, ...] where the shape has K dims.
-    """
-    res = arr[timesteps].astype(np.float32)
-    while len(res.shape) < len(broadcast_shape):
-        res = res[..., None]
-    return np.broadcast_to(res, broadcast_shape)
+        loss = mean_flat((target - model_output) ** 2)
+        terms["loss"] = loss
+        return terms

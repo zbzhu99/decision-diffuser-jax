@@ -79,3 +79,50 @@ class DiffuserOfflineEvaluator(BaseEvaluator):
         metrics["plan_act_mse_first_step"] = plan_act_mse_first_step
 
         return metrics
+
+
+class ValueFunctionOfflineEvaluator(BaseEvaluator):
+    eval_mode: str = "offline"
+
+    def __init__(self, config, agent, eval_dataloader):
+        super().__init__(config, None)
+        self._eval_dataloader = eval_dataloader
+        self._agent = agent
+
+    def update_params(self, params):
+        pass
+
+    def evaluate(self, epoch: int) -> Dict[str, Any]:
+        eval_batch = batch_to_jax(next(self._eval_dataloader))
+        rng = next_rng()
+        metrics = self._offline_eval_step(self._agent.eval_params, rng, eval_batch)
+        self.dump_metrics(metrics, epoch, suffix="_offline")
+        return metrics
+
+    @partial(jax.jit, static_argnames=("self"))
+    def _offline_eval_step(self, params, rng, eval_batch):
+        metrics = {}
+
+        conditions, targets = eval_batch["conditions"], eval_batch["targets"]
+        samples = jnp.concatenate(
+            (eval_batch["samples"], eval_batch["actions"]), axis=-1
+        )
+        rng, split_rng = jax.random.split(rng)
+        ts = jax.random.randint(
+            split_rng,
+            (samples.shape[0],),
+            minval=0,
+            maxval=self._agent.value_function.diffusion.num_timesteps,
+        )
+
+        pred_values = self._agent.value_function.apply(
+            params["value_function"],
+            rng,
+            samples=samples,
+            conditions=conditions,
+            ts=ts,
+        )
+
+        pred_value_mse = jnp.mean(jnp.square(pred_values - targets))
+        metrics["pred_value_mse"] = pred_value_mse
+        return metrics

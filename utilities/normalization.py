@@ -3,12 +3,6 @@ import scipy.interpolate as interpolate
 
 from utilities.data_utils import atleast_nd
 
-POINTMASS_KEYS = ["observations", "actions", "next_observations", "deltas"]
-
-# -----------------------------------------------------------------------------#
-# --------------------------- multi-field normalizer --------------------------#
-# -----------------------------------------------------------------------------#
-
 
 class DatasetNormalizer:
     def __init__(
@@ -25,7 +19,7 @@ class DatasetNormalizer:
             dataset["actions"].shape[-1] if "actions" in dataset.keys() else 0
         )
 
-        if type(normalizer) == str:
+        if type(normalizer) is str:
             normalizer = eval(normalizer)
 
         self.normalizers = {}
@@ -33,7 +27,16 @@ class DatasetNormalizer:
             try:
                 self.normalizers[key] = normalizer(val)
             except Exception:
-                print(f"[ utils/normalization ] Skipping {key} | {normalizer}")
+                if normalizer is not LimitsNormalizer:
+                    try:
+                        self.normalizers[key] = LimitsNormalizer(val)
+                        print(
+                            f"[ utils/normalization ] Replacing {key} | {normalizer} -> LimitsNormalizer"
+                        )
+                    except Exception:
+                        print(f"[ utils/normalization ] Skipping {key} | {normalizer}")
+                else:
+                    print(f"[ utils/normalization ] Skipping {key} | {normalizer}")
 
     def __repr__(self):
         string = ""

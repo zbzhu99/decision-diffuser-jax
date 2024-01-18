@@ -17,8 +17,6 @@ import importlib
 import absl
 import absl.flags
 import gym
-import jax
-import jax.numpy as jnp
 import torch
 import tqdm
 
@@ -49,12 +47,6 @@ class BaseTrainer:
             self._cfgs.n_epochs * self._cfgs.n_train_step_per_epoch
         )
 
-        if self._cfgs.activation == "mish":
-            act_fn = lambda x: x * jnp.tanh(jax.nn.softplus(x))
-        else:
-            act_fn = getattr(jax.nn, self._cfgs.activation)
-
-        self._act_fn = act_fn
         self._variant = get_user_flags(self._cfgs, config)
 
         # get high level env

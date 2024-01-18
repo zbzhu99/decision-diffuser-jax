@@ -1,4 +1,3 @@
-from functools import partial
 from typing import Tuple
 
 import distrax
@@ -7,10 +6,14 @@ import jax
 import jax.numpy as jnp
 from einops.layers.flax import Rearrange
 
-from diffuser.diffusion import GaussianDiffusion, _extract_into_tensor
-from diffuser.dpm_solver import DPM_Solver, NoiseScheduleVP
-
-from .helpers import Conv1dBlock, DownSample1d, TimeEmbedding, UpSample1d, mish
+from diffuser.diffusion import GaussianDiffusion, ValueDiffusion
+from diffuser.nets.helpers import (
+    Conv1dBlock,
+    DownSample1d,
+    TimeEmbedding,
+    UpSample1d,
+    mish,
+)
 
 
 class ResidualTemporalBlock(nn.Module):
@@ -60,7 +63,6 @@ class TemporalUnet(nn.Module):
             *map(lambda m: self.dim * m, self.dim_mults),
         ]
         self.in_out = list(zip(dims[:-1], dims[1:]))
-        # print(f"[ diffuser/nets/temporal.py ] Channel dimensions: {self.in_out}")
 
     @nn.compact
     def __call__(
@@ -214,57 +216,6 @@ class DiffusionPlanner(nn.Module):
             env_ts=env_ts,
         )
 
-    def dpm_sample(
-        self,
-        rng,
-        samples,
-        conditions,
-        env_ts=None,
-        deterministic=False,
-        returns_to_go=None,
-    ):
-        raise NotImplementedError
-        noise_clip = True
-        ns = NoiseScheduleVP(
-            schedule="discrete", alphas_cumprod=self.diffusion.alphas_cumprod
-        )
-
-        def wrap_model(model_fn):
-            def wrapped_model_fn(x, t, env_ts=None, returns_to_go=None):
-                t = (t - 1.0 / ns.total_N) * ns.total_N
-
-                out = model_fn(rng, x, t, returns_to_go=returns_to_go, env_ts=env_ts)
-                # add noise clipping
-                if noise_clip:
-                    t = t.astype(jnp.int32)
-                    x_w = _extract_into_tensor(
-                        self.diffusion.sqrt_recip_alphas_cumprod, t, x.shape
-                    )
-                    e_w = _extract_into_tensor(
-                        self.diffusion.sqrt_recipm1_alphas_cumprod, t, x.shape
-                    )
-                    max_value = (self.diffusion.max_value + x_w * x) / e_w
-                    min_value = (self.diffusion.min_value + x_w * x) / e_w
-
-                    out = out.clip(min_value, max_value)
-                return out
-
-            return wrapped_model_fn
-
-        dpm_sampler = DPM_Solver(
-            model_fn=wrap_model(
-                partial(
-                    self.base_net, samples, env_ts=env_ts, returns_to_go=returns_to_go
-                )
-            ),
-            noise_schedule=ns,
-            predict_x0=False,
-        )
-        x = jax.random.normal(rng, samples.shape)
-        out = dpm_sampler.sample(x, steps=self.dpm_steps, t_end=self.dpm_t_end)
-
-        return out
-
     def __call__(
         self, rng, conditions, env_ts=None, deterministic=False, returns_to_go=None
     ):
@@ -292,5 +243,132 @@ class DiffusionPlanner(nn.Module):
             env_ts=env_ts,
             t=ts,
             masks=masks,
+        )
+        return terms
+
+
+class ValueNet(nn.Module):
+    sample_dim: int
+    dim: int = 32
+    dim_mults: Tuple[int] = (1, 2, 4, 8)
+    kernel_size: int = 5
+
+    def setup(self):
+        self.dims = dims = [
+            self.sample_dim,
+            *map(lambda m: self.dim * m, self.dim_mults),
+        ]
+        self.in_out = list(zip(dims[:-1], dims[1:]))
+
+    @nn.compact
+    def __call__(
+        self,
+        rng,
+        x: jnp.ndarray,
+        time: jnp.ndarray,
+    ):
+        emb = TimeEmbedding(self.dim)(time)
+        horizon = x.shape[1]
+
+        h = []
+        num_resolutions = len(self.in_out)
+        for ind, (_, dim_out) in enumerate(self.in_out):
+            is_last = ind >= (num_resolutions - 1)
+
+            x = ResidualTemporalBlock(
+                dim_out,
+                kernel_size=self.kernel_size,
+                mish=True,
+            )(x, emb)
+            x = ResidualTemporalBlock(
+                dim_out,
+                kernel_size=self.kernel_size,
+                mish=True,
+            )(x, emb)
+            h.append(x)
+
+            if not is_last:
+                x = DownSample1d(dim_out)(x)
+                horizon = horizon // 2
+
+        mid_dim = self.dims[-1]
+        mid_dim_2 = mid_dim // 2
+        mid_dim_3 = mid_dim // 4
+        x = ResidualTemporalBlock(
+            mid_dim_2,
+            kernel_size=self.kernel_size,
+            mish=True,
+        )(x, emb)
+        x = DownSample1d(mid_dim_2)(x)
+        horizon = horizon // 2
+        x = ResidualTemporalBlock(
+            mid_dim_3,
+            kernel_size=self.kernel_size,
+            mish=True,
+        )(x, emb)
+        x = DownSample1d(mid_dim_3)(x)
+        horizon = horizon // 2
+
+        fc_dim = mid_dim_3 * max(horizon, 1)
+        x = x.reshape(len(x), -1)
+        out = nn.Sequential(
+            [
+                nn.Dense(fc_dim // 2),
+                mish,
+                nn.Dense(1),
+            ]
+        )(jnp.concatenate([x, emb], axis=-1))
+        return out
+
+
+class ValueFunction(nn.Module):
+    diffusion: ValueDiffusion
+    sample_dim: int
+    action_dim: int
+    dim: int
+    dim_mults: Tuple[int]
+    kernel_size: int = 5
+
+    def setup(self):
+        self.value_net = ValueNet(
+            sample_dim=self.sample_dim,
+            dim=self.dim,
+            dim_mults=self.dim_mults,
+            kernel_size=self.kernel_size,
+        )
+
+    def __call__(
+        self,
+        rng_key,
+        samples,
+        conditions,
+        ts,
+    ):
+        pred_values = self.diffusion.forward(
+            rng_key,
+            model_forward=self.value_net,
+            x_start=samples,
+            conditions=conditions,
+            condition_dim=self.sample_dim - self.action_dim,
+            t=ts,
+        )
+        return pred_values
+
+    def loss(
+        self,
+        rng_key,
+        samples,
+        conditions,
+        targets,
+        ts,
+    ):
+        terms = self.diffusion.training_losses(
+            rng_key,
+            model_forward=self.value_net,
+            x_start=samples,
+            conditions=conditions,
+            target=targets,
+            condition_dim=self.sample_dim - self.action_dim,
+            t=ts,
         )
         return terms

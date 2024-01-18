@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+import jax
+import jax.numpy as jnp
 
 from diffuser.algos import DiffusionQL
 from diffuser.diffusion import GaussianDiffusion, LossType
@@ -29,6 +31,13 @@ class DiffusionQLTrainer(BaseTrainer):
                 num_workers=8,
             )
         )
+
+        if self._cfgs.activation == "mish":
+            act_fn = lambda x: x * jnp.tanh(jax.nn.softplus(x))
+        else:
+            act_fn = getattr(jax.nn, self._cfgs.activation)
+
+        self._act_fn = act_fn
 
         if self._cfgs.algo_cfg.target_entropy >= 0.0:
             action_space = self._eval_sampler.env.action_space

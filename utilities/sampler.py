@@ -107,7 +107,7 @@ class TrajSampler(object):
     def set_normalizer(self, normalizer):
         self._normalizer = normalizer
 
-    def set_target_return(self, target_return, discount: float = 1.0):
+    def set_target_return(self, target_return: float, discount: float = 1.0):
         self._target_return = target_return
         self._discount = discount
 

@@ -68,7 +68,7 @@ class SequenceDataset(torch.utils.data.Dataset):
 
     def pad_history(self, keys: List[str] = None):
         if keys is None:
-            keys = ["normed_observations"]
+            keys = ["normed_observations", "normed_returns"]
             if self.use_action:
                 if self.discrete_action:
                     keys.append("actions")
@@ -110,7 +110,7 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         elif self.padding_type == "same":
             if keys is None:
-                keys = ["normed_observations"]
+                keys = ["normed_observations", "normed_returns"]
                 if self.use_action:
                     if self.discrete_action:
                         keys.append("actions")
@@ -198,11 +198,9 @@ class SequenceDataset(torch.utils.data.Dataset):
         if self.include_env_ts:
             # a little confusing here. Note that history_start is the original ts in the traj
             ret_dict["env_ts"] = history_start
-        # returns and cost_returns are not padded, so history_start is used
         if self.include_returns:
-            # TODO(zbzhu): also pad returns and cost_returns ??
             ret_dict["returns_to_go"] = self._data.normed_returns[
-                path_ind, history_start
+                path_ind, start
             ].reshape(1, 1)
 
         if self.use_action:
@@ -268,3 +266,26 @@ class QLearningDataset(SequenceDataset):
             next_conditions=next_conditions,
         )
         return ret_dict
+
+
+class ValueFunctionDataset(SequenceDataset):
+    def __init__(self, *args, norm_return_target: bool = False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.norm_return_target = norm_return_target
+
+    def __getitem__(self, idx):
+        batch = super().__getitem__(idx)
+        path_ind, start, end, mask_end = self._indices[idx]
+
+        if self.norm_return_target:
+            targets = self._data.normed_returns[path_ind, start + self.history_horizon]
+        else:
+            targets = self._data.returns[path_ind, start + self.history_horizon]
+
+        value_batch = {
+            "samples": batch["samples"],
+            "conditions": batch["conditions"],
+            "actions": batch["actions"],
+            "targets": targets,
+        }
+        return value_batch
