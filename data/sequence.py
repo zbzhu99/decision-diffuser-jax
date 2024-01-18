@@ -68,7 +68,7 @@ class SequenceDataset(torch.utils.data.Dataset):
 
     def pad_history(self, keys: List[str] = None):
         if keys is None:
-            keys = ["normed_observations", "normed_returns"]
+            keys = ["normed_observations", "normed_returns", "returns"]
             if self.use_action:
                 if self.discrete_action:
                     keys.append("actions")
@@ -110,7 +110,7 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         elif self.padding_type == "same":
             if keys is None:
-                keys = ["normed_observations", "normed_returns"]
+                keys = ["normed_observations", "normed_returns", "returns"]
                 if self.use_action:
                     if self.discrete_action:
                         keys.append("actions")
@@ -278,9 +278,9 @@ class ValueFunctionDataset(SequenceDataset):
         path_ind, start, end, mask_end = self._indices[idx]
 
         if self.norm_return_target:
-            targets = self._data.normed_returns[path_ind, start + self.history_horizon]
+            targets = self._data.normed_returns[path_ind, start + self.history_horizon].reshape(1,)
         else:
-            targets = self._data.returns[path_ind, start + self.history_horizon]
+            targets = self._data.returns[path_ind, start + self.history_horizon].reshape(1,)
 
         value_batch = {
             "samples": batch["samples"],

@@ -68,7 +68,7 @@ class DiffuserValue(Algo):
         train_states["value_function"] = train_states["value_function"].apply_gradients(
             grads=grad_value_function[0]["value_function"]
         )
-        metrics = dict(diff_loss=aux_value_function["loss"])
+        metrics = dict(value_loss=aux_value_function["loss"])
         return train_states, metrics
 
     def get_diff_loss(self, batch):
